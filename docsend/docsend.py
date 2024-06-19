@@ -13,6 +13,8 @@ class DocSend:
         self.url = f'https://docsend.com/view/{doc_id}'
         self.s = HTMLSession()
 
+        self.authorized = False
+
     def fetch_meta(self):
         r = self.s.get(self.url)
         r.raise_for_status()
@@ -22,6 +24,9 @@ class DocSend:
         self.pages = int(r.html.find('.document-thumb-container')[-1].attrs['data-page-num'])
 
     def authorize(self, email, passcode=None):
+        if not self.authorized:
+            self.fetch_meta()
+        
         form = {
             'utf8': '✓',
             '_method': 'patch',
@@ -32,6 +37,7 @@ class DocSend:
         }
         f = self.s.post(self.url, data=form)
         f.raise_for_status()
+        self.authorized = True
 
     def fetch_images(self):
         self.image_urls = []
@@ -49,6 +55,9 @@ class DocSend:
         return rgb
 
     def save_pdf(self, name=None):
+        if not hasattr(self, 'images'):
+            self.fetch_images()
+        
         self.images[0].save(
             name,
             format='PDF',
@@ -57,6 +66,8 @@ class DocSend:
         )
 
     def save_images(self, name):
+        '''Saves enumerated images in a folder called `name` as PNGs.'''
+
         path = Path(name)
         path.mkdir(exist_ok=True)
         for page, image in enumerate(self.images, start=1):
